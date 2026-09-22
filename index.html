@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>全链条梳理结果报送 · 可编辑甘特图</title>
+<title>全链条梳理结果报送 · 进度甘特图</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -41,11 +41,12 @@
     display: flex; flex-wrap: wrap; gap: 10px 22px;
     margin-top: 14px; font-size: 12.5px; color: #475569;
   }
-  .meta-item { display: flex; align-items: center; gap: 6px; }
+  .meta-item { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: #3b82f6; }
   .dot.red { background: #ef4444; }
   .dot.green { background: #10b981; }
   .dot.slate { background: #94a3b8; }
+  .dot.orange { background: #f59e0b; }
   .toolbar {
     display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
     margin-top: 16px; padding-top: 14px; border-top: 1px dashed #e2e8f0;
@@ -76,21 +77,353 @@
     box-shadow: 0 3px 10px -4px rgba(124, 58, 237, .8);
   }
   .btn.share:hover { filter: brightness(1.08); }
+  .btn.copy {
+    background: linear-gradient(180deg, #10b981, #059669);
+    border-color: #059669; color: #fff;
+    box-shadow: 0 3px 10px -4px rgba(16, 185, 129, .8);
+  }
+  .btn.copy:hover { filter: brightness(1.07); }
   .hint { font-size: 12px; color: #94a3b8; }
-  .shared-banner {
+  .filter-wrap {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: #64748b;
+  }
+  .filter-select {
+    font-family: inherit; font-size: 13px; color: #334155;
+    padding: 7px 30px 7px 12px; border: 1px solid #cbd5e1; border-radius: 9px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8.825L1.175 4 2.238 2.938 6 6.7l3.763-3.762L10.825 4z'/%3E%3C/svg%3E") no-repeat right 9px center / 12px 12px;
+    appearance: none; -webkit-appearance: none; cursor: pointer;
+    transition: all .16s ease;
+  }
+  .filter-select:hover { border-color: #94a3b8; }
+  .filter-select:focus {
+    outline: none; border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .14);
+  }
+  .filter-select.has-filter {
+    border-color: #8b5cf6; color: #7c3aed;
+    background-color: #faf5ff; font-weight: 600;
+  }
+
+  /* ================= 只读横幅 ================= */
+  .readonly-banner {
+    display: none;
+    align-items: center; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap;
+    background: linear-gradient(90deg, #fef3c7 0%, #fffbeb 100%);
+    border: 1px solid #fcd34d;
+    border-radius: 12px;
+    padding: 12px 18px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #92400e;
+    line-height: 1.6;
+    box-shadow: 0 4px 14px -8px rgba(245, 158, 11, .6);
+  }
+  .readonly-banner.show { display: flex; }
+  .readonly-banner b { color: #78350f; }
+  .readonly-banner .rb-left {
+    display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 auto;
+  }
+  .readonly-banner .rb-icon {
+    flex-shrink: 0; width: 28px; height: 28px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #fff; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px -1px rgba(245, 158, 11, .5);
+  }
+  .readonly-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 8px; border-radius: 999px;
+    background: #fcd34d; color: #78350f;
+    margin-left: 6px; letter-spacing: .3px;
+  }
+
+  /* ================= 工作进展明细面板 ================= */
+  .detail-panel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 6px 22px -12px rgba(15, 23, 42, .18);
+    overflow: hidden;
+  }
+  .dp-head {
     display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 14px 22px;
+    background: linear-gradient(90deg, #f8fafc 0%, #ffffff 100%);
+    border-bottom: 1px solid #eef2f7;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s ease;
+  }
+  .dp-head:hover { background: linear-gradient(90deg, #f1f5f9 0%, #fbfdff 100%); }
+  .dp-title {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 14px; font-weight: 700; color: #1e293b;
+    letter-spacing: .3px;
+  }
+  .dp-title-icon {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+    color: #1d4ed8; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .dp-head-right { display: flex; align-items: center; gap: 12px; }
+  .dp-head-summary {
+    font-size: 12px; color: #64748b;
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .dp-head-summary b { color: #1d4ed8; font-variant-numeric: tabular-nums; }
+  .dp-head-summary .r-high { color: #b91c1c; font-weight: 700; }
+  .dp-toggle {
+    flex-shrink: 0;
+    appearance: none; border: 1px solid #cbd5e1; background: #fff;
+    color: #475569; font-size: 12px; font-family: inherit;
+    padding: 5px 12px; border-radius: 8px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: all .14s ease;
+  }
+  .dp-toggle:hover { background: #f1f5f9; border-color: #94a3b8; color: #1e293b; }
+  .dp-toggle .arrow {
+    display: inline-block; transition: transform .22s ease;
+    font-size: 10px; line-height: 1;
+  }
+  .detail-panel.collapsed .dp-toggle .arrow { transform: rotate(-90deg); }
+  .dp-stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, #fbfdff 0%, #ffffff 100%);
+    border-bottom: 1px solid #eef2f7;
+  }
+  @media (max-width: 880px) {
+    .dp-stats { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .dp-stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  .dp-stat {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 13px; border-radius: 11px;
+    background: #fff; border: 1px solid #eef2f7;
+    transition: transform .14s ease, box-shadow .14s ease;
+  }
+  .dp-stat:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px -6px rgba(15, 23, 42, .28);
+  }
+  .dp-stat-icon {
+    width: 30px; height: 30px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .dp-stat-body { min-width: 0; }
+  .dp-stat-num {
+    font-size: 19px; font-weight: 700; line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+  .dp-stat-label {
+    font-size: 11px; color: #94a3b8; margin-top: 2px;
+    font-weight: 600; letter-spacing: .2px;
+    white-space: nowrap;
+  }
+  .dp-stat.total   .dp-stat-icon { background: #eff6ff; color: #2563eb; }
+  .dp-stat.total   .dp-stat-num  { color: #1d4ed8; }
+  .dp-stat.done    .dp-stat-icon { background: #ecfdf5; color: #059669; }
+  .dp-stat.done    .dp-stat-num  { color: #047857; }
+  .dp-stat.active  .dp-stat-icon { background: #dbeafe; color: #2563eb; }
+  .dp-stat.active  .dp-stat-num  { color: #1d4ed8; }
+  .dp-stat.pending .dp-stat-icon { background: #f1f5f9; color: #64748b; }
+  .dp-stat.pending .dp-stat-num  { color: #475569; }
+  .dp-stat.risk    .dp-stat-icon { background: #fef2f2; color: #dc2626; }
+  .dp-stat.risk    .dp-stat-num  { color: #b91c1c; }
+  .dp-stat.risk.is-zero .dp-stat-icon { background: #ecfdf5; color: #059669; }
+  .dp-stat.risk.is-zero .dp-stat-num  { color: #047857; }
+  .dp-body {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 0;
+  }
+  @media (max-width: 980px) {
+    .dp-body { grid-template-columns: 1fr; }
+    .dp-col.risks { border-left: none !important; border-top: 1px solid #eef2f7; }
+  }
+  .detail-panel.collapsed .dp-body { display: none; }
+  .detail-panel.collapsed .dp-stats { border-bottom: none; }
+  .dp-col { min-width: 0; padding: 14px 18px 16px; }
+  .dp-col.risks { border-left: 1px solid #eef2f7; background: #fcfdff; }
+  .dp-col-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 10px;
+  }
+  .dp-col-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 700; color: #475569;
+    letter-spacing: .3px;
+  }
+  .dp-col-title::before {
+    content: ''; width: 3px; height: 12px; border-radius: 2px;
+    background: #3b82f6; flex-shrink: 0;
+  }
+  .dp-col.risks .dp-col-title::before { background: #ef4444; }
+  .dp-col-count {
+    font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 999px; background: #f1f5f9; color: #64748b;
+    font-variant-numeric: tabular-nums;
+  }
+  .dp-prog-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 7px;
+    max-height: 252px; overflow-y: auto; padding-right: 4px;
+  }
+  .dp-prog-list::-webkit-scrollbar { width: 6px; }
+  .dp-prog-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .dp-prog-list::-webkit-scrollbar-track { background: transparent; }
+  .dp-prog-item {
+    padding: 8px 11px 9px;
+    border-radius: 9px;
+    background: #fff;
+    border: 1px solid #eef2f7;
+    cursor: pointer;
+    transition: all .14s ease;
+  }
+  .dp-prog-item:hover {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+    transform: translateX(2px);
+  }
+  .dp-prog-item.has-risk-high { border-left: 3px solid #dc2626; }
+  .dp-prog-item.has-risk-medium { border-left: 3px solid #f59e0b; }
+  .dp-prog-item.has-risk-low { border-left: 3px solid #3b82f6; }
+  .dp-prog-top {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 6px;
+  }
+  .dp-prog-name {
+    flex: 1 1 auto; min-width: 0;
+    font-size: 12.5px; font-weight: 600; color: #1e293b;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dp-prog-name.empty { color: #cbd5e1; font-style: italic; font-weight: 500; }
+  .dp-prog-pct {
+    flex: 0 0 auto;
+    font-size: 11.5px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #475569;
+  }
+  .dp-prog-pct.done { color: #047857; }
+  .dp-prog-pct.behind { color: #b91c1c; }
+  .dp-prog-pct.empty { color: #cbd5e1; font-weight: 600; }
+  .dp-prog-bar {
+    height: 6px; border-radius: 3px;
+    background: #eef2f7; overflow: hidden;
+    display: flex;
+  }
+  .dp-prog-fill {
+    height: 100%; border-radius: 3px;
+    transition: width .35s ease;
+  }
+  .dp-prog-fill.done    { background: linear-gradient(90deg, #34d399, #10b981); }
+  .dp-prog-fill.active  { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+  .dp-prog-fill.pending { background: #cbd5e1; }
+  .dp-prog-fill.behind  { background: linear-gradient(90deg, #f87171, #ef4444); }
+  .dp-prog-fill.unknown { background: repeating-linear-gradient(
+      45deg, #e2e8f0 0, #e2e8f0 3px, #f8fafc 3px, #f8fafc 6px); }
+  .dp-prog-meta {
+    display: flex; align-items: center; gap: 8px;
+    margin-top: 5px; font-size: 10.5px; color: #94a3b8;
+  }
+  .dp-mini-tag {
+    font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 4px;
+    letter-spacing: .2px;
+  }
+  .dp-mini-tag.done    { background: #d1fae5; color: #047857; }
+  .dp-mini-tag.active  { background: #dbeafe; color: #1d4ed8; }
+  .dp-mini-tag.pending { background: #f1f5f9; color: #64748b; }
+  .dp-risk-list {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 7px;
+    max-height: 252px; overflow-y: auto; padding-right: 4px;
+  }
+  .dp-risk-list::-webkit-scrollbar { width: 6px; }
+  .dp-risk-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .dp-risk-list::-webkit-scrollbar-track { background: transparent; }
+  .dp-risk-item {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 11px; border-radius: 9px;
+    background: #fff; border: 1px solid #eef2f7;
+    cursor: pointer; transition: all .14s ease;
+    min-width: 0;
+  }
+  .dp-risk-item:hover {
+    background: #fff7f7; border-color: #fecaca;
+    transform: translateX(2px);
+  }
+  .dp-risk-item.high   { border-left: 3px solid #dc2626; }
+  .dp-risk-item.medium { border-left: 3px solid #f59e0b; }
+  .dp-risk-item.low    { border-left: 3px solid #3b82f6; }
+  .dp-risk-name {
+    flex: 1 1 auto; min-width: 0;
+    font-size: 12.5px; font-weight: 600; color: #1e293b;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dp-risk-item.high .dp-risk-name { color: #991b1b; }
+  .dp-risk-item.medium .dp-risk-name { color: #92400e; }
+  .dp-risk-name.empty { color: #cbd5e1; font-style: italic; font-weight: 500; }
+  .dp-risk-tag {
+    flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+    padding: 1px 7px; border-radius: 5px;
+  }
+  .dp-risk-tag.high   { background: #fee2e2; color: #b91c1c; }
+  .dp-risk-tag.medium { background: #fef3c7; color: #b45309; }
+  .dp-risk-tag.low    { background: #dbeafe; color: #1d4ed8; }
+  .dp-risk-note {
+    flex: 1 1 100%;
+    font-size: 11px; color: #94a3b8;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: -2px;
+  }
+  .dp-empty {
+    padding: 18px 16px; border-radius: 10px;
+    text-align: center; font-size: 12.5px;
+  }
+  .dp-empty.ok {
+    background: linear-gradient(90deg, #ecfdf5, #f0fdf4);
+    border: 1px solid #a7f3d0; color: #047857;
+  }
+  .dp-empty.none {
+    background: #f8fafc; border: 1px dashed #e2e8f0; color: #94a3b8;
+  }
+  .gantt-row.highlight {
+    animation: rowHighlight 2.2s ease;
+  }
+  @keyframes rowHighlight {
+    0%   { background: #fef3c7; box-shadow: inset 4px 0 0 #f59e0b; }
+    55%  { background: #fef9c3; box-shadow: inset 4px 0 0 #f59e0b; }
+    100% { background: transparent; box-shadow: none; }
+  }
+  .shared-banner {
+    display: none; align-items: center; justify-content: space-between;
     gap: 12px; flex-wrap: wrap;
     background: linear-gradient(90deg, #eff6ff 0%, #f0f9ff 100%);
     border: 1px solid #bfdbfe; border-radius: 12px;
     padding: 11px 16px; margin-bottom: 16px; font-size: 13px; color: #1e40af;
     animation: slideDown .22s ease;
   }
+  .shared-banner.show { display: flex; }
   .shared-banner b { color: #1d4ed8; }
   .shared-banner.error {
     background: linear-gradient(90deg, #fef2f2 0%, #fff1f2 100%);
     border-color: #fecaca; color: #991b1b;
   }
   .shared-banner.error b { color: #b91c1c; }
+
   .editor {
     display: none; background: #fff; border: 1px solid #e2e8f0;
     border-radius: 16px; padding: 20px 24px 22px; margin-bottom: 16px;
@@ -114,7 +447,7 @@
   }
   .ed-tip { font-size: 11.5px; font-weight: 400; color: #94a3b8; margin-left: 4px; }
   .ed-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(346px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 14px 18px;
   }
   .ed-field { display: flex; flex-direction: column; gap: 5px; }
@@ -164,6 +497,14 @@
   .ed-task:hover {
     border-color: #bfdbfe;
     box-shadow: 0 4px 14px -8px rgba(37, 99, 235, .55);
+  }
+  .ed-task.has-risk-high {
+    border-color: #fca5a5;
+    background: linear-gradient(180deg, #fff 0%, #fef2f2 100%);
+  }
+  .ed-task.has-risk-medium {
+    border-color: #fcd34d;
+    background: linear-gradient(180deg, #fff 0%, #fffbeb 100%);
   }
   .ed-task.flash { animation: taskFlash 1.5s ease; }
   @keyframes taskFlash {
@@ -226,6 +567,89 @@
   .ed-task-foot label {
     flex: 0 0 auto; font-size: 11.5px; color: #64748b; font-weight: 600;
   }
+  .ed-progress-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 9px;
+    padding-top: 8px; border-top: 1px dashed #eef2f7;
+  }
+  .ed-progress-row > label {
+    flex: 0 0 auto; font-size: 11.5px; color: #64748b; font-weight: 600;
+  }
+  .progress-control {
+    flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0;
+  }
+  .progress-control input[type="range"] {
+    flex: 1 1 auto; min-width: 0; height: 6px;
+    appearance: none; -webkit-appearance: none;
+    background: linear-gradient(90deg, #3b82f6 0%, #3b82f6 var(--p, 0%), #e2e8f0 var(--p, 0%), #e2e8f0 100%);
+    border-radius: 3px; cursor: pointer; outline: none;
+  }
+  .progress-control input[type="range"]::-webkit-slider-thumb {
+    appearance: none; -webkit-appearance: none;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: #fff; border: 2px solid #3b82f6;
+    box-shadow: 0 1px 4px rgba(59,130,246,.4);
+    cursor: pointer; transition: transform .14s ease;
+  }
+  .progress-control input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  .progress-control input[type="range"]::-moz-range-thumb {
+    width: 13px; height: 13px; border-radius: 50%;
+    background: #fff; border: 2px solid #3b82f6;
+    box-shadow: 0 1px 4px rgba(59,130,246,.4);
+    cursor: pointer;
+  }
+  .progress-control input[type="number"] {
+    flex: 0 0 58px; font-family: inherit; font-size: 12.5px; font-weight: 700;
+    color: #1e293b; padding: 5px 6px; border: 1px solid #cbd5e1;
+    border-radius: 7px; background: #fff; text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-control input[type="number"]:focus {
+    outline: none; border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.14);
+  }
+  .progress-control .pc-unit {
+    flex: 0 0 auto; font-size: 12px; color: #94a3b8;
+  }
+  .ed-risk-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 9px;
+    padding-top: 8px; border-top: 1px dashed #eef2f7;
+  }
+  .ed-risk-row > label {
+    flex: 0 0 auto; font-size: 11.5px; color: #64748b; font-weight: 600;
+  }
+  .risk-btns {
+    flex: 1 1 auto; display: flex; gap: 4px;
+  }
+  .risk-btn {
+    flex: 1; padding: 5px 0;
+    font-family: inherit; font-size: 11.5px; font-weight: 600;
+    border: 1px solid #cbd5e1; background: #fff; color: #94a3b8;
+    border-radius: 6px; cursor: pointer; transition: all .14s ease;
+  }
+  .risk-btn:hover { background: #f8fafc; }
+  .risk-btn.active.none { background: #f1f5f9; border-color: #94a3b8; color: #475569; }
+  .risk-btn.active.low { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+  .risk-btn.active.medium { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+  .risk-btn.active.high { background: #fef2f2; border-color: #dc2626; color: #b91c1c; }
+  .ed-risk-note-row {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+  }
+  .ed-risk-note-row > label {
+    flex: 0 0 auto; font-size: 11.5px; color: #64748b; font-weight: 600;
+  }
+  .ed-risk-note-row input {
+    flex: 1 1 auto; min-width: 0; font-family: inherit; font-size: 12.5px;
+    color: #1e293b; padding: 6px 9px; border: 1px solid #cbd5e1;
+    border-radius: 7px; background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .ed-risk-note-row input:focus {
+    outline: none; border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.14);
+  }
+  .ed-risk-note-row input::placeholder { color: #cbd5e1; }
   .ed-link-row {
     display: flex; align-items: center; gap: 6px; margin-top: 9px;
     padding-top: 8px; border-top: 1px dashed #eef2f7;
@@ -287,9 +711,9 @@
   }
   .gantt-scroll { overflow-x: auto; overflow-y: hidden; }
   .gantt {
-    --label-w: 322px; --day-pct: 2%;
+    --label-w: 340px; --day-pct: 2%;
     display: flex; flex-direction: column;
-    min-width: 1080px; font-size: 13px;
+    min-width: 1120px; font-size: 13px;
   }
   .label-col {
     width: var(--label-w); flex: 0 0 var(--label-w);
@@ -325,7 +749,7 @@
   }
   .gantt-body { position: relative; }
   .gantt-row {
-    display: flex; height: 64px;
+    display: flex; height: 72px;
     border-bottom: 1px solid #f1f5f9;
     transition: background .15s ease;
   }
@@ -334,7 +758,7 @@
   .gantt-row .label-col {
     display: flex; flex-direction: column; justify-content: center; gap: 5px;
   }
-  .task-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .task-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
   .task-name {
     flex: 1 1 auto; min-width: 0;
     font-size: 13px; font-weight: 600; color: #1e293b;
@@ -362,6 +786,31 @@
     font-size: 11.5px; color: #94a3b8;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .task-risk-note {
+    font-size: 11px; color: #b91c1c;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .task-risk-note.medium { color: #b45309; }
+  .task-risk-note.low { color: #1d4ed8; }
+  .task-risk-note::before {
+    content: '⚠'; font-size: 11px; flex-shrink: 0;
+  }
+  .risk-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; flex: 0 0 auto;
+  }
+  .risk-dot.high { background: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,.2); }
+  .risk-dot.medium { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.2); }
+  .risk-dot.low { background: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.2); }
+  .prog-badge {
+    flex: 0 0 auto; font-size: 10.5px; font-weight: 700;
+    padding: 1px 6px; border-radius: 5px;
+    background: #f1f5f9; color: #475569;
+    font-variant-numeric: tabular-nums; letter-spacing: .2px;
+  }
+  .prog-badge.done { background: #d1fae5; color: #047857; }
+  .prog-badge.behind { background: #fee2e2; color: #b91c1c; }
   .badge {
     flex: 0 0 auto; font-size: 11px; font-weight: 600;
     padding: 2px 8px; border-radius: 999px;
@@ -378,7 +827,7 @@
   .gantt.no-grid .gantt-row .time-col { background-image: none; }
   .bar {
     position: absolute; top: 50%; transform: translateY(-50%);
-    height: 24px; border-radius: 6px; overflow: hidden;
+    height: 26px; border-radius: 6px; overflow: hidden;
     cursor: default; transition: filter .15s ease;
   }
   .bar:hover { filter: brightness(.95); }
@@ -395,15 +844,40 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, .45); }
     50%      { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0); }
   }
+  .bar.risk-high {
+    box-shadow: 0 0 0 2px #dc2626, 0 2px 10px -2px rgba(220, 38, 38, .6);
+    animation: riskPulse 2s ease-in-out infinite;
+  }
+  .bar.risk-medium {
+    box-shadow: 0 0 0 2px #f59e0b, 0 2px 8px -2px rgba(245, 158, 11, .55);
+  }
+  @keyframes riskPulse {
+    0%, 100% { box-shadow: 0 0 0 2px #dc2626, 0 0 0 0 rgba(220, 38, 38, .55); }
+    50%      { box-shadow: 0 0 0 2px #dc2626, 0 0 0 7px rgba(220, 38, 38, 0); }
+  }
   .bar-fill {
     height: 100%;
     background: linear-gradient(180deg, #60a5fa 0%, #3b82f6 100%);
     transition: width .4s ease;
   }
+  .bar-actual {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(0, 0, 0, .18) 0,
+      rgba(0, 0, 0, .18) 3px,
+      transparent 3px,
+      transparent 6px
+    );
+    pointer-events: none;
+    transition: width .3s ease;
+  }
+  .bar-actual.full { background: rgba(0, 0, 0, .12); }
   .bar-check {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
     color: #fff; font-size: 12px; font-weight: 700;
+    z-index: 2;
   }
   .today-line {
     position: absolute; top: 0; bottom: 0; width: 2px;
@@ -431,6 +905,20 @@
   .sw.link span {
     color: #2563eb; font-size: 12px; font-weight: 700;
     border-bottom: 1px dashed rgba(37,99,235,.45);
+  }
+  .sw.actual {
+    background: repeating-linear-gradient(
+      -45deg, rgba(0,0,0,.18) 0, rgba(0,0,0,.18) 2px,
+      transparent 2px, transparent 4px
+    );
+    border: 1px solid #cbd5e1;
+  }
+  .sw.risk-high {
+    background: #fff; border: 2px solid #dc2626;
+    box-shadow: 0 0 0 2px rgba(220,38,38,.15);
+  }
+  .sw.risk-medium {
+    background: #fff; border: 2px solid #f59e0b;
   }
   .footnote {
     margin-top: 14px; font-size: 12px; color: #94a3b8; text-align: right;
@@ -497,9 +985,16 @@
     background: #f0f9ff; border: 1px solid #bae6fd;
     font-size: 12px; color: #075985; line-height: 1.6;
   }
+  .modal-tip.ro {
+    background: #fffbeb; border-color: #fde68a; color: #92400e;
+  }
   .modal-foot {
     display: flex; justify-content: flex-end; gap: 10px;
     padding: 14px 20px; background: #fbfdff; border-top: 1px solid #f1f5f9;
+  }
+  .empty-filter {
+    padding: 40px 20px; text-align: center;
+    color: #94a3b8; font-size: 13px;
   }
   @media (max-width: 720px) {
     body { padding: 14px 10px 28px; }
@@ -509,12 +1004,29 @@
     .ed-grid { grid-template-columns: 1fr; }
     .modal-foot { flex-direction: column-reverse; }
     .modal-foot .btn { justify-content: center; width: 100%; }
+    .detail-panel { padding: 0; }
+    .dp-head { padding: 12px 16px; }
+    .dp-stats { padding: 12px 16px; gap: 8px; }
+    .dp-col { padding: 12px 14px 14px; }
+    .dp-head-summary { display: none; }
+    .readonly-banner { padding: 10px 14px; }
   }
 </style>
 </head>
 <body>
 <div class="page">
-  <div class="shared-banner" id="sharedBanner" style="display:none">
+
+  <!-- 只读横幅 -->
+  <div class="readonly-banner" id="readonlyBanner">
+    <div class="rb-left">
+      <span class="rb-icon">🔒</span>
+      <span><b>只读模式</b>：这是发布者分享的甘特图，你看到的是其最新版本，无法修改。如需编辑，请点击「复制为我的计划」。</span>
+    </div>
+    <button class="btn copy small" id="copyBtn2" type="button">📋 复制为我的计划</button>
+  </div>
+
+  <!-- 分享加载横幅 -->
+  <div class="shared-banner" id="sharedBanner">
     <span id="sharedBannerText"></span>
     <button class="btn small" id="sharedBannerClose" type="button">知道了</button>
   </div>
@@ -530,13 +1042,59 @@
       <div class="meta-item"><i class="dot red"></i><span id="deadlineInfo"></span></div>
       <div class="meta-item"><i class="dot slate"></i><span id="rangeInfo"></span></div>
       <div class="meta-item"><i class="dot green"></i><span id="statInfo"></span></div>
+      <div class="meta-item"><i class="dot orange"></i><span id="riskInfo"></span></div>
     </div>
     <div class="toolbar">
       <button class="btn primary" id="editBtn" type="button">✏️ 编辑计划</button>
+      <button class="btn copy" id="copyBtn" type="button" style="display:none">📋 复制为我的计划</button>
       <button class="btn share" id="shareBtn" type="button">🔗 生成分享链接</button>
+      <div class="filter-wrap">
+        <span>筛选</span>
+        <select class="filter-select" id="riskFilter">
+          <option value="all">全部任务</option>
+          <option value="high">仅高风险</option>
+          <option value="medium-up">中风险以上</option>
+          <option value="any-risk">所有有风险</option>
+          <option value="undone">未完成</option>
+          <option value="behind">进度滞后</option>
+        </select>
+      </div>
       <span class="hint" id="saveHint">修改会自动保存在本机浏览器中</span>
     </div>
   </header>
+
+  <section class="detail-panel" id="detailPanel" aria-label="工作进展明细">
+    <div class="dp-head" id="dpHead">
+      <div class="dp-title">
+        <span class="dp-title-icon">📋</span>
+        <span>工作进展明细</span>
+      </div>
+      <div class="dp-head-right">
+        <div class="dp-head-summary" id="dpHeadSummary"></div>
+        <button class="dp-toggle" id="dpToggle" type="button" aria-label="展开或收起">
+          <span class="dp-toggle-text">收起</span>
+          <span class="arrow">▼</span>
+        </button>
+      </div>
+    </div>
+    <div class="dp-stats" id="dpStats"></div>
+    <div class="dp-body" id="dpBody">
+      <div class="dp-col progress">
+        <div class="dp-col-head">
+          <span class="dp-col-title">工作进展情况</span>
+          <span class="dp-col-count" id="dpProgCount">0 项</span>
+        </div>
+        <ul class="dp-prog-list" id="dpProgList"></ul>
+      </div>
+      <div class="dp-col risks">
+        <div class="dp-col-head">
+          <span class="dp-col-title">风险事项</span>
+          <span class="dp-col-count" id="dpRiskCount">0 项</span>
+        </div>
+        <ul class="dp-risk-list" id="dpRiskList"></ul>
+      </div>
+    </div>
+  </section>
 
   <section class="editor" id="editor" aria-label="计划编辑面板"></section>
 
@@ -546,11 +1104,13 @@
     </div>
     <div class="legend">
       <span class="lg"><i class="sw done"></i>已完成</span>
-      <span class="lg"><i class="sw active"></i>进行中（含实时进度）</span>
+      <span class="lg"><i class="sw active"></i>进行中</span>
       <span class="lg"><i class="sw pending"></i>未开始</span>
+      <span class="lg"><i class="sw actual"></i>实际进展覆盖</span>
+      <span class="lg"><i class="sw risk-high"></i>高风险</span>
+      <span class="lg"><i class="sw risk-medium"></i>中风险</span>
       <span class="lg"><i class="sw line"></i>今天</span>
-      <span class="lg"><i class="sw link"><span>Aa</span></i>带链接（可点击）</span>
-      <span class="lg" style="color:#94a3b8">※ 任务按开始日期自动升序排列</span>
+      <span class="lg"><i class="sw link"><span>Aa</span></i>带链接</span>
     </div>
   </div>
 
@@ -564,18 +1124,16 @@
       <button class="modal-close" id="shareClose" type="button" aria-label="关闭">×</button>
     </div>
     <div class="modal-body">
-      <p class="modal-desc">
-        把下面的链接发给其他人，他们打开后就能看到你<strong>当前这一份</strong>甘特图内容。
-        链接已经过压缩并使用 URL 安全字符，不会因特殊字符被打断。
+      <p class="modal-desc" id="shareDesc">
+        把下面的链接发给其他人，他们打开后就能看到你<strong>当前这一份</strong>甘特图内容（含实际进展与风险）。
       </p>
       <textarea id="shareUrl" readonly spellcheck="false"></textarea>
       <div class="modal-info">
         <span id="shareLen"></span>
         <span id="shareCopyHint"></span>
       </div>
-      <div class="modal-tip">
-        💡 如果链接在聊天软件里被截断或加了奇怪字符，可尝试复制后直接粘贴到浏览器地址栏打开；
-        也可以先把链接发到备忘录、邮件等更“原样”的地方再复制。
+      <div class="modal-tip ro" id="shareTip">
+        🔒 此链接为<strong>只读分享</strong>，接收者只能查看，不能修改数据。
       </div>
     </div>
     <div class="modal-foot">
@@ -1002,8 +1560,12 @@
      基础工具
   ============================================================ */
   var MS_DAY = 86400000;
-  var STORE_KEY = 'gantt-chain-schedule-v10';
+  var STORE_KEY = 'gantt-chain-schedule-v14';
   var LEGACY_KEYS = [
+    'gantt-chain-schedule-v13',
+    'gantt-chain-schedule-v12',
+    'gantt-chain-schedule-v11',
+    'gantt-chain-schedule-v10',
     'gantt-chain-schedule-v9',
     'gantt-chain-schedule-v8',
     'gantt-chain-schedule-v7',
@@ -1014,9 +1576,17 @@
     'gantt-chain-schedule-v2',
     'gantt-chain-schedule-v1'
   ];
+  var PANEL_KEY = 'gantt-chain-detail-collapsed';
 
   var DEFAULT_TITLE = '全链条梳理结果报送 · 进度甘特图';
   var DEFAULT_GOAL  = '10月30日17:00前，17家单位100%按时保质报送全链条梳理结果清单，确保十月交付结果没问题。';
+
+  var RISK_META = {
+    none:   { label: '无', color: '#94a3b8', weight: 0 },
+    low:    { label: '低', color: '#3b82f6', weight: 1 },
+    medium: { label: '中', color: '#f59e0b', weight: 2 },
+    high:   { label: '高', color: '#dc2626', weight: 3 }
+  };
 
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function toDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
@@ -1047,6 +1617,7 @@
     });
   }
   function isValidDate(d) { return d instanceof Date && !isNaN(d.getTime()); }
+  function clamp(n, min, max) { return Math.min(max, Math.max(min, n)); }
 
   function normalizeLink(u) {
     if (u == null) return '';
@@ -1058,6 +1629,17 @@
     if (/^[\w.-]+\.[a-z]{2,}([/:?#].*)?$/i.test(u)) return 'https://' + u;
     if (/^[./]/.test(u)) return u;
     return '';
+  }
+
+  function normalizeRiskLevel(v) {
+    return RISK_META[v] ? v : 'none';
+  }
+
+  function normalizeProgress(v) {
+    if (v === null || v === undefined || v === '' || v === -1) return null;
+    var n = Number(v);
+    if (isNaN(n)) return null;
+    return clamp(Math.round(n), 0, 100);
   }
 
   var idSeq = 0;
@@ -1076,34 +1658,42 @@
       { id: 't1', name: '启动每周常态化进展跟踪，把控风险',
         desc: '通过在线文档，要求17家单位每周更新全链条梳理周度各个阶段的进展',
         deliverable: '各单位每周的进展情况', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(9, 28), end: D(10, 25) },
       { id: 't2', name: '完成结果报送邮件',
         desc: '完成结果报送邮件内容撰写与终版评审',
         deliverable: '结果报送邮件', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(10, 13), end: D(10, 13) },
       { id: 't3', name: '发送结果报送通知邮件',
         desc: '通过数字化中心邮箱发送阶段性成果报送通知要求',
         deliverable: '邮件通知', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(10, 15), end: D(10, 15) },
       { id: 't4', name: '跟踪结果报送',
         desc: '常态化跟踪收集结果报送情况，识别风险，催报',
         deliverable: '结果报送跟踪记录表', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(10, 25), end: D(10, 30) },
       { id: 't5', name: '汇总分析，形成总清单',
         desc: '完成17家单位全链条梳理结果初版汇总分析，完成数据校验，确认材料完整性，复核整改，形成初版分析基础材料',
         deliverable: '完成汇总分析报告', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(11, 2), end: D(11, 6) },
       { id: 't6', name: '完成最终版场景清单编制',
         desc: '以最终确认结果形成集团全链条场景全景清单V1.0',
         deliverable: '集团全链条梳理场景清单V1.0', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(11, 7), end: D(11, 11) },
       { id: 't7', name: '汇报评审，成果发布',
         desc: '汇报17家单位梳理成果，根据领导要求组织“17家单位全链条梳理结果汇报会”',
         deliverable: '汇报材料', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(11, 11), end: D(11, 17) },
       { id: 't8', name: '集团全景汇总场景清单编制',
         desc: '根据各单位的基础场景清单编制全集团的全链条场景明细清单',
         deliverable: '集团全链条梳理场景清单终版清单', link: '',
+        progress: null, riskLevel: 'none', riskNote: '',
         start: D(11, 18), end: D(11, 18) }
     ];
   }
@@ -1132,12 +1722,12 @@
       d: fmtDT(state.deadline),
       k: state.tasks.map(function (t) {
         return [
-          t.name,
-          t.desc,
-          t.deliverable,
-          fmtDate(t.start),
-          fmtDate(t.end),
-          t.link || ''
+          t.name, t.desc, t.deliverable,
+          fmtDate(t.start), fmtDate(t.end),
+          t.link || '',
+          (t.progress === null || t.progress === undefined) ? -1 : t.progress,
+          t.riskLevel || 'none',
+          t.riskNote || ''
         ];
       })
     });
@@ -1169,6 +1759,9 @@
           desc: (typeof arr[1] === 'string') ? arr[1] : '',
           deliverable: (typeof arr[2] === 'string') ? arr[2] : '',
           link: (typeof arr[5] === 'string') ? arr[5] : '',
+          progress: normalizeProgress(arr[6]),
+          riskLevel: normalizeRiskLevel(arr[7]),
+          riskNote: (typeof arr[8] === 'string') ? arr[8] : '',
           start: s, end: e
         });
       });
@@ -1182,13 +1775,18 @@
   }
 
   /* ============================================================
+     全局状态
+  ============================================================ */
+  var isReadonly = false;   // 是否只读模式
+
+  /* ============================================================
      本地存储
   ============================================================ */
   var state = loadState() || defaultState();
 
   function serialize() {
     return JSON.stringify({
-      v: 10,
+      v: 14,
       title: state.title,
       goal: state.goal,
       projectStart: fmtDate(state.projectStart),
@@ -1198,6 +1796,9 @@
         return {
           id: t.id, name: t.name, desc: t.desc,
           deliverable: t.deliverable, link: t.link || '',
+          progress: t.progress,
+          riskLevel: t.riskLevel || 'none',
+          riskNote: t.riskNote || '',
           start: fmtDate(t.start), end: fmtDate(t.end)
         };
       })
@@ -1205,6 +1806,8 @@
   }
 
   function saveState() {
+    /* 只读模式下不保存任何本地修改 */
+    if (isReadonly) return;
     try {
       localStorage.setItem(STORE_KEY, serialize());
       LEGACY_KEYS.forEach(function (k) { localStorage.removeItem(k); });
@@ -1243,6 +1846,9 @@
             desc: (typeof t.desc === 'string') ? t.desc : (d.desc || ''),
             deliverable: (typeof t.deliverable === 'string') ? t.deliverable : (d.deliverable || ''),
             link: (typeof t.link === 'string') ? t.link : '',
+            progress: normalizeProgress(t.progress),
+            riskLevel: normalizeRiskLevel(t.riskLevel),
+            riskNote: (typeof t.riskNote === 'string') ? t.riskNote : '',
             start: s, end: e
           };
         }).filter(Boolean);
@@ -1262,7 +1868,7 @@
   }
 
   /* ============================================================
-     自动排序：按开始日期升序，其次按结束日期，最后按名称
+     排序 & 归一化
   ============================================================ */
   function sortTasks() {
     state.tasks.sort(function (a, b) {
@@ -1280,33 +1886,40 @@
     state.tasks.forEach(function (t) {
       if (typeof t.link !== 'string') t.link = '';
       if (t.end < t.start) t.end = new Date(t.start.getTime());
+      t.progress = normalizeProgress(t.progress);
+      t.riskLevel = normalizeRiskLevel(t.riskLevel);
+      if (typeof t.riskNote !== 'string') t.riskNote = '';
     });
     if (state.projectEnd < state.projectStart) {
       state.projectEnd = new Date(state.projectStart.getTime());
     }
     if (typeof state.title !== 'string') state.title = DEFAULT_TITLE;
     if (typeof state.goal !== 'string') state.goal = DEFAULT_GOAL;
-
-    /* 自动按时间排序 */
     sortTasks();
   }
 
   /* ============================================================
-     分享链接：生成 / 读取
+     分享链接
+     - 生成：末尾加 &ro=1 表示只读
+     - 解析：识别 ro=1 参数
   ============================================================ */
   function generateShareUrl() {
     var json = packState();
     var base = window.location.href.split('#')[0].split('?')[0];
     var compressed = compressToBase64Url(json);
+    var url;
     if (compressed) {
-      return base + '?z=' + compressed;
+      url = base + '?z=' + compressed;
+    } else {
+      try {
+        var bytes = new TextEncoder().encode(json);
+        url = base + '?p=' + bytesToBase64Url(bytes);
+      } catch (e) {
+        url = base;
+      }
     }
-    try {
-      var bytes = new TextEncoder().encode(json);
-      return base + '?p=' + bytesToBase64Url(bytes);
-    } catch (e) {
-      return base;
-    }
+    /* 加只读标记 */
+    return url + '&ro=1';
   }
 
   function decodeSafe(s) {
@@ -1314,27 +1927,25 @@
   }
 
   function extractShareParam() {
+    var qs = '', hs = '';
     try {
-      var qs = window.location.search || '';
-      var mz = qs.match(/[?&]z=([^&#]*)/);
-      if (mz) return { type: 'z', data: decodeSafe(mz[1]) };
-      var mp = qs.match(/[?&]p=([^&#]*)/);
-      if (mp) return { type: 'p', data: decodeSafe(mp[1]) };
-    } catch (e) {}
+      qs = window.location.search || '';
+      hs = window.location.hash || '';
+    } catch (e) { return null; }
 
-    try {
-      var hs = window.location.hash || '';
-      var mz2 = hs.match(/[#&]z=([^&]*)/);
-      if (mz2) return { type: 'z', data: decodeSafe(mz2[1]) };
-      var mp2 = hs.match(/[#&]p=([^&]*)/);
-      if (mp2) return { type: 'p', data: decodeSafe(mp2[1]) };
-    } catch (e) {}
+    var all = qs + '&' + hs;
+    /* 识别只读标记 */
+    var readonly = /[?&#]ro=1/.test(all);
+
+    var mz = all.match(/[?&#]z=([^&#]*)/);
+    if (mz) return { type: 'z', data: decodeSafe(mz[1]), readonly: readonly };
+    var mp = all.match(/[?&#]p=([^&#]*)/);
+    if (mp) return { type: 'p', data: decodeSafe(mp[1]), readonly: readonly };
 
     return null;
   }
 
-  function tryLoadShared() {
-    var found = extractShareParam();
+  function tryLoadShared(found) {
     if (!found || !found.data) return false;
 
     var newState = null;
@@ -1358,6 +1969,7 @@
       }
     }
 
+    /* 交叉兜底 */
     if (!newState && found.type === 'z') {
       try {
         var bytes2 = base64UrlToBytes(found.data);
@@ -1373,10 +1985,13 @@
     state = newState;
     normalize();
 
-    try {
-      var clean = window.location.href.split('#')[0].split('?')[0];
-      window.history.replaceState(null, '', clean);
-    } catch (e) {}
+    /* 只读模式下保留 URL 参数（刷新页面仍然只读） */
+    if (!found.readonly) {
+      try {
+        var clean = window.location.href.split('#')[0].split('?')[0];
+        window.history.replaceState(null, '', clean);
+      } catch (e) {}
+    }
 
     return true;
   }
@@ -1411,12 +2026,302 @@
     return 'active';
   }
 
+  function getPlannedProgress(t, status, now) {
+    if (status === 'done') return 100;
+    if (status === 'pending') return 0;
+    var sT = t.start.getTime();
+    var eT = t.end.getTime() + MS_DAY - 1;
+    if (eT <= sT) return 0;
+    return clamp(Math.round((now.getTime() - sT) / (eT - sT) * 100), 0, 100);
+  }
+
+  function isBehind(t, status, now) {
+    if (t.progress === null || t.progress === undefined) return false;
+    var planned = getPlannedProgress(t, status, now);
+    return t.progress < planned - 15;
+  }
+
   function renderTitle() {
     var el = document.getElementById('pageTitle');
     var txt = (state.title || '').trim();
     el.textContent = txt || '（未命名计划）';
     el.classList.toggle('empty', !txt);
-    document.title = txt || '进度甘特图';
+    document.title = (txt || '进度甘特图') + (isReadonly ? '（只读）' : '');
+  }
+
+  /* ============================================================
+     筛选
+  ============================================================ */
+  var riskFilter = 'all';
+
+  function matchFilter(t, status, now) {
+    if (riskFilter === 'all') return true;
+    if (riskFilter === 'high') return t.riskLevel === 'high';
+    if (riskFilter === 'medium-up') {
+      return t.riskLevel === 'high' || t.riskLevel === 'medium';
+    }
+    if (riskFilter === 'any-risk') return t.riskLevel !== 'none';
+    if (riskFilter === 'undone') {
+      return !(t.progress !== null && t.progress >= 100);
+    }
+    if (riskFilter === 'behind') {
+      return isBehind(t, status, now);
+    }
+    return true;
+  }
+
+  /* ============================================================
+     工作进展明细面板
+  ============================================================ */
+  var collapsed = false;
+  try {
+    collapsed = localStorage.getItem(PANEL_KEY) === '1';
+  } catch (e) {}
+
+  function setCollapsed(v) {
+    collapsed = !!v;
+    var panel = document.getElementById('detailPanel');
+    var txt = document.querySelector('.dp-toggle-text');
+    if (panel) panel.classList.toggle('collapsed', collapsed);
+    if (txt) txt.textContent = collapsed ? '展开' : '收起';
+    try { localStorage.setItem(PANEL_KEY, collapsed ? '1' : '0'); } catch (e) {}
+  }
+
+  function renderDetailPanel() {
+    var now = new Date();
+    var today0 = toDay(now);
+
+    var total = state.tasks.length;
+    var done = 0, active = 0, pending = 0;
+    var progressSum = 0, progressCount = 0;
+    var risks = [];
+
+    state.tasks.forEach(function (t) {
+      var st = getStatus(t.start, t.end, today0);
+      if (st === 'done') done++;
+      else if (st === 'active') active++;
+      else pending++;
+      if (t.progress !== null && t.progress !== undefined) {
+        progressSum += t.progress;
+        progressCount++;
+      }
+      if (t.riskLevel && t.riskLevel !== 'none') {
+        risks.push({ t: t, level: t.riskLevel, st: st });
+      }
+    });
+
+    var avgProgress = progressCount > 0 ? Math.round(progressSum / progressCount) : null;
+    var highCount = 0, mediumCount = 0, lowCount = 0;
+    risks.forEach(function (r) {
+      if (r.level === 'high') highCount++;
+      else if (r.level === 'medium') mediumCount++;
+      else lowCount++;
+    });
+
+    var sumEl = document.getElementById('dpHeadSummary');
+    if (sumEl) {
+      var parts = [];
+      parts.push('共 <b>' + total + '</b> 项');
+      if (avgProgress !== null) parts.push('平均进展 <b>' + avgProgress + '%</b>');
+      if (risks.length > 0) {
+        parts.push('<span class="r-high">⚠ ' + risks.length + ' 项风险</span>');
+      } else {
+        parts.push('无风险');
+      }
+      sumEl.innerHTML = parts.join(' · ');
+    }
+
+    var statsEl = document.getElementById('dpStats');
+    if (statsEl) {
+      var s = '';
+      s += '<div class="dp-stat total">';
+      s += '<div class="dp-stat-icon">📌</div>';
+      s += '<div class="dp-stat-body"><div class="dp-stat-num">' + total + '</div>';
+      s += '<div class="dp-stat-label">任务总数</div></div></div>';
+      s += '<div class="dp-stat done">';
+      s += '<div class="dp-stat-icon">✓</div>';
+      s += '<div class="dp-stat-body"><div class="dp-stat-num">' + done + '</div>';
+      s += '<div class="dp-stat-label">已完成</div></div></div>';
+      s += '<div class="dp-stat active">';
+      s += '<div class="dp-stat-icon">▶</div>';
+      s += '<div class="dp-stat-body"><div class="dp-stat-num">' + active + '</div>';
+      s += '<div class="dp-stat-label">进行中</div></div></div>';
+      s += '<div class="dp-stat pending">';
+      s += '<div class="dp-stat-icon">○</div>';
+      s += '<div class="dp-stat-body"><div class="dp-stat-num">' + pending + '</div>';
+      s += '<div class="dp-stat-label">未开始</div></div></div>';
+      s += '<div class="dp-stat risk' + (risks.length === 0 ? ' is-zero' : '') + '">';
+      s += '<div class="dp-stat-icon">' + (risks.length === 0 ? '✓' : '⚠') + '</div>';
+      s += '<div class="dp-stat-body"><div class="dp-stat-num">' + risks.length + '</div>';
+      s += '<div class="dp-stat-label">有风险</div></div></div>';
+      statsEl.innerHTML = s;
+    }
+
+    var progCountEl = document.getElementById('dpProgCount');
+    if (progCountEl) progCountEl.textContent = total + ' 项';
+
+    var progListEl = document.getElementById('dpProgList');
+    if (progListEl) {
+      if (total === 0) {
+        progListEl.innerHTML = '<li class="dp-empty none">暂无工作事项</li>';
+      } else {
+        var ph = '';
+        state.tasks.forEach(function (t) {
+          var st = getStatus(t.start, t.end, today0);
+          var actual = (t.progress === null || t.progress === undefined) ? null : t.progress;
+          var planned = getPlannedProgress(t, st, now);
+          var behind = isBehind(t, st, now);
+          var riskLevel = t.riskLevel || 'none';
+          var hasName = !!(t.name && t.name.trim());
+          var name = hasName ? t.name : '（未命名任务）';
+
+          var barPct = 0;
+          if (actual !== null) barPct = actual;
+          else if (st === 'done') barPct = 100;
+          else if (st === 'active') barPct = planned;
+
+          var fillCls = 'active';
+          if (actual === null && st === 'pending') fillCls = 'pending';
+          else if (actual === null) fillCls = 'unknown';
+          else if (behind) fillCls = 'behind';
+          else if (st === 'done' || actual >= 100) fillCls = 'done';
+
+          var pctText, pctCls = '';
+          if (actual === null) {
+            pctText = (st === 'done') ? '100%' : '未填写';
+            pctCls = 'empty';
+          } else {
+            pctText = actual + '%';
+            if (actual >= 100) pctCls = 'done';
+            else if (behind) pctCls = 'behind';
+          }
+
+          var itemCls = 'dp-prog-item';
+          if (riskLevel === 'high') itemCls += ' has-risk-high';
+          else if (riskLevel === 'medium') itemCls += ' has-risk-medium';
+          else if (riskLevel === 'low') itemCls += ' has-risk-low';
+
+          var tipParts = [name];
+          tipParts.push('状态：' + STATUS_TEXT[st]);
+          if (actual !== null) tipParts.push('实际进展：' + actual + '%');
+          if (st === 'active') tipParts.push('计划进度：' + planned + '%');
+          if (behind) tipParts.push('⚠ 落后于计划');
+          if (riskLevel !== 'none') {
+            tipParts.push('风险等级：' + RISK_META[riskLevel].label);
+            if (t.riskNote && t.riskNote.trim()) tipParts.push('风险说明：' + t.riskNote);
+          }
+          if (t.deliverable && t.deliverable.trim()) tipParts.push('交付物：' + t.deliverable);
+
+          ph += '<li class="' + itemCls + '" data-target="' + esc(t.id) + '" ' +
+                'title="' + esc(tipParts.join('\n')) + '">';
+          ph += '<div class="dp-prog-top">';
+          if (riskLevel !== 'none') {
+            ph += '<span class="risk-dot ' + riskLevel + '"></span>';
+          }
+          ph += '<span class="dp-prog-name' + (hasName ? '' : ' empty') + '">' + esc(name) + '</span>';
+          ph += '<span class="dp-prog-pct ' + pctCls + '">' + esc(pctText) + '</span>';
+          ph += '</div>';
+          ph += '<div class="dp-prog-bar">';
+          ph += '<div class="dp-prog-fill ' + fillCls + '" style="width:' + clamp(barPct, 0, 100) + '%"></div>';
+          ph += '</div>';
+          ph += '<div class="dp-prog-meta">';
+          ph += '<span class="dp-mini-tag ' + st + '">' + STATUS_TEXT[st] + '</span>';
+          if (behind) ph += '<span style="color:#b91c1c;font-weight:600">⚠ 进度滞后</span>';
+          if (riskLevel !== 'none') {
+            ph += '<span style="color:' + RISK_META[riskLevel].color + ';font-weight:600">' +
+                  '风险·' + RISK_META[riskLevel].label + '</span>';
+          }
+          ph += '</div>';
+          ph += '</li>';
+        });
+        progListEl.innerHTML = ph;
+      }
+    }
+
+    var order = { high: 0, medium: 1, low: 2 };
+    risks.sort(function (a, b) {
+      var d = order[a.level] - order[b.level];
+      if (d !== 0) return d;
+      return a.t.start.getTime() - b.t.start.getTime();
+    });
+
+    var riskCountEl = document.getElementById('dpRiskCount');
+    if (riskCountEl) {
+      if (risks.length === 0) {
+        riskCountEl.textContent = '0 项';
+      } else {
+        var p = [];
+        if (highCount) p.push('高 ' + highCount);
+        if (mediumCount) p.push('中 ' + mediumCount);
+        if (lowCount) p.push('低 ' + lowCount);
+        riskCountEl.textContent = risks.length + ' 项 · ' + p.join(' · ');
+      }
+    }
+
+    var riskListEl = document.getElementById('dpRiskList');
+    if (riskListEl) {
+      if (risks.length === 0) {
+        riskListEl.innerHTML = '<li class="dp-empty ok">✓ 当前所有任务均无风险标记</li>';
+      } else {
+        var rh = '';
+        risks.forEach(function (r) {
+          var t = r.t;
+          var hasName = !!(t.name && t.name.trim());
+          var name = hasName ? t.name : '（未命名任务）';
+          var note = (t.riskNote && t.riskNote.trim()) ? t.riskNote : '';
+          var stText = STATUS_TEXT[r.st];
+          var tip = name + '\n风险等级：' + RISK_META[r.level].label +
+                    '\n状态：' + stText +
+                    (note ? '\n风险说明：' + note : '\n（未填写风险说明）');
+          rh += '<li class="dp-risk-item ' + r.level + '" data-target="' + esc(t.id) + '" ' +
+                'title="' + esc(tip) + '">';
+          rh += '<div class="dp-risk-item-wrap">';
+          rh += '<span class="risk-dot ' + r.level + '"></span>';
+          rh += '<span class="dp-risk-name' + (hasName ? '' : ' empty') + '">' + esc(name) + '</span>';
+          rh += '<span class="dp-risk-tag ' + r.level + '">' + RISK_META[r.level].label + '</span>';
+          rh += '</div>';
+          rh += '<div class="dp-risk-note">' + esc(note || '（未填写风险说明）') + '</div>';
+          rh += '</li>';
+        });
+        riskListEl.innerHTML = rh;
+      }
+    }
+
+    var panel = document.getElementById('detailPanel');
+    var txt = document.querySelector('.dp-toggle-text');
+    if (panel) panel.classList.toggle('collapsed', collapsed);
+    if (txt) txt.textContent = collapsed ? '展开' : '收起';
+  }
+
+  function scrollToTask(tid) {
+    var row = document.querySelector('.gantt-row[data-task-id="' + tid + '"]');
+    if (!row) {
+      if (riskFilter !== 'all') {
+        riskFilter = 'all';
+        var sel = document.getElementById('riskFilter');
+        if (sel) { sel.value = 'all'; sel.classList.remove('has-filter'); }
+        renderGantt();
+        setTimeout(function () { scrollToTask(tid); }, 100);
+      }
+      return;
+    }
+    try {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) {
+      row.scrollIntoView();
+    }
+    row.classList.remove('highlight');
+    void row.offsetWidth;
+    row.classList.add('highlight');
+    setTimeout(function () { row.classList.remove('highlight'); }, 2300);
+  }
+
+  function findParentByClass(el, cls) {
+    while (el && el !== document) {
+      if (el.classList && el.classList.contains(cls)) return el;
+      el = el.parentNode;
+    }
+    return null;
   }
 
   /* ============================================================
@@ -1497,25 +2402,53 @@
       body.appendChild(line);
     }
 
-    var counts = { done: 0, active: 0, pending: 0 };
+    var visibleTasks = state.tasks.filter(function (t) {
+      var st = getStatus(t.start, t.end, today0);
+      return matchFilter(t, st, now);
+    });
 
-    if (state.tasks.length === 0) {
-      var emptyRow = document.createElement('div');
-      emptyRow.className = 'gantt-row';
-      emptyRow.style.height = '80px';
-      var el1 = document.createElement('div');
-      el1.className = 'label-col';
-      el1.style.color = '#94a3b8';
-      el1.style.fontSize = '13px';
-      el1.textContent = '暂无工作事项，请点击「编辑计划」添加';
-      var el2 = document.createElement('div');
-      el2.className = 'time-col';
-      emptyRow.appendChild(el1);
-      emptyRow.appendChild(el2);
-      body.appendChild(emptyRow);
-    }
+    var counts = { done: 0, active: 0, pending: 0 };
+    var progressSum = 0, progressCount = 0;
+    var highRisk = 0, mediumRisk = 0, lowRisk = 0;
+    var behindCount = 0;
 
     state.tasks.forEach(function (t) {
+      var st = getStatus(t.start, t.end, today0);
+      counts[st]++;
+      if (t.progress !== null && t.progress !== undefined) {
+        progressSum += t.progress;
+        progressCount++;
+      }
+      if (t.riskLevel === 'high') highRisk++;
+      else if (t.riskLevel === 'medium') mediumRisk++;
+      else if (t.riskLevel === 'low') lowRisk++;
+      if (isBehind(t, st, now)) behindCount++;
+    });
+
+    var avgProgress = progressCount > 0 ? Math.round(progressSum / progressCount) : null;
+
+    if (visibleTasks.length === 0) {
+      var emptyDiv = document.createElement('div');
+      emptyDiv.className = 'empty-filter';
+      emptyDiv.textContent = state.tasks.length === 0
+        ? '暂无工作事项'
+        : '当前筛选条件下没有匹配的任务，请调整筛选条件';
+      body.appendChild(emptyDiv);
+      gantt.appendChild(body);
+
+      document.getElementById('goalText').textContent = state.goal || '';
+      document.getElementById('todayInfo').textContent =
+        '当前日期：' + now.getFullYear() + '年' + (now.getMonth() + 1) + '月' +
+        now.getDate() + '日 ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+      updateTopInfo(counts, avgProgress, highRisk, mediumRisk, lowRisk, behindCount);
+      document.getElementById('rangeInfo').textContent =
+        '时间轴：' + (TL_START.getMonth() + 1) + '月' + TL_START.getDate() + '日 - ' +
+        (TL_END.getMonth() + 1) + '月' + TL_END.getDate() + '日（' + TOTAL_DAYS + '天）';
+      renderDetailPanel();
+      return;
+    }
+
+    visibleTasks.forEach(function (t) {
       var sIdx = dayDiff(TL_START, t.start);
       var eIdx = dayDiff(TL_START, t.end);
       if (sIdx < 0) sIdx = 0;
@@ -1523,18 +2456,12 @@
       if (eIdx < sIdx) eIdx = sIdx;
 
       var status = getStatus(t.start, t.end, today0);
-      counts[status]++;
-
       var leftPct = sIdx / TOTAL_DAYS * 100;
       var widthPct = (eIdx - sIdx + 1) / TOTAL_DAYS * 100;
 
-      var prog = 0;
-      if (status === 'done') prog = 1;
-      else if (status === 'active') {
-        var sT = t.start.getTime();
-        var eT = t.end.getTime() + MS_DAY - 1;
-        prog = Math.min(1, Math.max(0, (now.getTime() - sT) / (eT - sT)));
-      }
+      var plannedProgress = getPlannedProgress(t, status, now);
+      var actualProgress = (t.progress === null || t.progress === undefined) ? null : t.progress;
+      var behind = isBehind(t, status, now);
 
       var sameDay = dayDiff(t.start, t.end) === 0;
       var dateText = sameDay
@@ -1544,10 +2471,13 @@
 
       var hasName = !!(t.name && t.name.trim());
       var hasDeliver = !!(t.deliverable && t.deliverable.trim());
+      var hasRiskNote = !!(t.riskNote && t.riskNote.trim());
       var link = normalizeLink(t.link);
+      var riskLevel = t.riskLevel || 'none';
 
       var row = document.createElement('div');
       row.className = 'gantt-row';
+      row.dataset.taskId = t.id;
 
       var label = document.createElement('div');
       label.className = 'label-col';
@@ -1555,9 +2485,16 @@
       var top = document.createElement('div');
       top.className = 'task-top';
 
+      if (riskLevel !== 'none') {
+        var rdot = document.createElement('span');
+        rdot.className = 'risk-dot ' + riskLevel;
+        rdot.title = '风险等级：' + RISK_META[riskLevel].label +
+                     (hasRiskNote ? '\n说明：' + t.riskNote : '');
+        top.appendChild(rdot);
+      }
+
       var nameEl;
       var nameText = hasName ? t.name : '（未命名任务）';
-
       if (link) {
         nameEl = document.createElement('a');
         nameEl.className = 'task-name link' + (hasName ? '' : ' empty');
@@ -1573,12 +2510,25 @@
         nameEl.textContent = nameText;
         nameEl.title = nameText;
       }
+      top.appendChild(nameEl);
+
+      if (actualProgress !== null) {
+        var pb = document.createElement('span');
+        var pbClass = 'prog-badge';
+        if (actualProgress >= 100) pbClass += ' done';
+        else if (behind) pbClass += ' behind';
+        pb.className = pbClass;
+        pb.textContent = actualProgress + '%';
+        var pbTitle = '实际进展：' + actualProgress + '%';
+        if (status === 'active') pbTitle += '\n计划进度：' + plannedProgress + '%';
+        if (behind) pbTitle += '\n⚠ 落后于计划';
+        pb.title = pbTitle;
+        top.appendChild(pb);
+      }
 
       var badge = document.createElement('span');
       badge.className = 'badge ' + status;
       badge.textContent = STATUS_TEXT[status];
-
-      top.appendChild(nameEl);
       top.appendChild(badge);
 
       var sub = document.createElement('div');
@@ -1588,31 +2538,58 @@
                   (t.desc ? '\n说明：' + t.desc : '') +
                   '\n时间：' + dateText +
                   '\n交付物：' + (hasDeliver ? t.deliverable : '（未填写）') +
+                  (actualProgress !== null ? '\n实际进展：' + actualProgress + '%' : '') +
+                  (riskLevel !== 'none' ? '\n风险等级：' + RISK_META[riskLevel].label : '') +
                   (link ? '\n链接：' + link : '');
 
       label.appendChild(top);
       label.appendChild(sub);
 
+      if (hasRiskNote && riskLevel !== 'none') {
+        var rn = document.createElement('div');
+        rn.className = 'task-risk-note ' + riskLevel;
+        rn.textContent = t.riskNote;
+        rn.title = t.riskNote;
+        label.appendChild(rn);
+      }
+
       var timeCell = document.createElement('div');
       timeCell.className = 'time-col';
 
       var bar = document.createElement('div');
-      bar.className = 'bar ' + status;
+      var barClass = 'bar ' + status;
+      if (riskLevel === 'high') barClass += ' risk-high';
+      else if (riskLevel === 'medium') barClass += ' risk-medium';
+      bar.className = barClass;
       bar.style.left = leftPct + '%';
       bar.style.width = widthPct + '%';
-      bar.title = nameText + '\n' + dateText +
+
+      bar.title = nameText +
+                  '\n' + dateText +
                   '\n状态：' + STATUS_TEXT[status] +
-                  (status === 'active' ? '（' + Math.round(prog * 100) + '%）' : '') +
+                  (status === 'active' ? '（计划 ' + plannedProgress + '%）' : '') +
+                  (actualProgress !== null ? '\n实际进展：' + actualProgress + '%' : '') +
                   (t.desc ? '\n说明：' + t.desc : '') +
                   '\n交付物：' + (hasDeliver ? t.deliverable : '（未填写）') +
+                  (riskLevel !== 'none' ? '\n风险等级：' + RISK_META[riskLevel].label : '') +
+                  (hasRiskNote ? '\n风险说明：' + t.riskNote : '') +
                   (link ? '\n链接：' + link : '');
 
       if (status === 'active') {
         var fill = document.createElement('div');
         fill.className = 'bar-fill';
-        fill.style.width = (prog * 100).toFixed(1) + '%';
+        fill.style.width = plannedProgress + '%';
         bar.appendChild(fill);
-      } else if (status === 'done' && widthPct >= 2.5) {
+      }
+
+      if (actualProgress !== null && actualProgress > 0) {
+        var actual = document.createElement('div');
+        actual.className = 'bar-actual' + (actualProgress >= 100 ? ' full' : '');
+        actual.style.width = actualProgress + '%';
+        bar.appendChild(actual);
+      }
+
+      if (status === 'done' && widthPct >= 2.5) {
         var chk = document.createElement('div');
         chk.className = 'bar-check';
         chk.textContent = '✓';
@@ -1632,7 +2609,19 @@
       '当前日期：' + now.getFullYear() + '年' + (now.getMonth() + 1) + '月' +
       now.getDate() + '日 ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
 
+    updateTopInfo(counts, avgProgress, highRisk, mediumRisk, lowRisk, behindCount);
+
+    document.getElementById('rangeInfo').textContent =
+      '时间轴：' + (TL_START.getMonth() + 1) + '月' + TL_START.getDate() + '日 - ' +
+      (TL_END.getMonth() + 1) + '月' + TL_END.getDate() + '日（' + TOTAL_DAYS + '天）' +
+      (visibleTasks.length !== state.tasks.length ? ' · 显示 ' + visibleTasks.length + '/' + state.tasks.length + ' 项' : '');
+
+    renderDetailPanel();
+  }
+
+  function updateTopInfo(counts, avgProgress, highRisk, mediumRisk, lowRisk, behindCount) {
     var dlEl = document.getElementById('deadlineInfo');
+    var now = new Date();
     var diffDays = Math.ceil((state.deadline.getTime() - now.getTime()) / MS_DAY);
     if (diffDays > 0) {
       dlEl.textContent = '距目标截止还有 ' + diffDays + ' 天';
@@ -1645,17 +2634,27 @@
       dlEl.style.color = '#dc2626';
     }
 
-    document.getElementById('rangeInfo').textContent =
-      '时间轴：' + (TL_START.getMonth() + 1) + '月' + TL_START.getDate() + '日 - ' +
-      (TL_END.getMonth() + 1) + '月' + TL_END.getDate() + '日（' + TOTAL_DAYS + '天）';
+    var parts = [];
+    parts.push('共 ' + state.tasks.length + ' 项');
+    parts.push('完成 ' + counts.done + ' · 进行中 ' + counts.active + ' · 未开始 ' + counts.pending);
+    if (avgProgress !== null) parts.push('平均实际进展 ' + avgProgress + '%');
+    if (behindCount > 0) parts.push('滞后 ' + behindCount);
+    document.getElementById('statInfo').textContent = parts.join(' ｜ ');
 
-    var linkCount = 0;
-    state.tasks.forEach(function (t) { if (normalizeLink(t.link)) linkCount++; });
-
-    document.getElementById('statInfo').textContent =
-      '共 ' + state.tasks.length + ' 项 ｜ 已完成 ' + counts.done +
-      ' · 进行中 ' + counts.active + ' · 未开始 ' + counts.pending +
-      (linkCount ? ' · 带链接 ' + linkCount : '');
+    var rEl = document.getElementById('riskInfo');
+    var riskParts = [];
+    if (highRisk > 0) riskParts.push('高风险 ' + highRisk);
+    if (mediumRisk > 0) riskParts.push('中风险 ' + mediumRisk);
+    if (lowRisk > 0) riskParts.push('低风险 ' + lowRisk);
+    if (riskParts.length > 0) {
+      rEl.textContent = '⚠ ' + riskParts.join(' · ');
+      if (highRisk > 0) rEl.style.color = '#dc2626';
+      else if (mediumRisk > 0) rEl.style.color = '#b45309';
+      else rEl.style.color = '#1d4ed8';
+    } else {
+      rEl.textContent = '无风险项';
+      rEl.style.color = '#94a3b8';
+    }
   }
 
   /* ============================================================
@@ -1669,6 +2668,12 @@
   }
 
   function renderEditor() {
+    /* 只读模式下不渲染编辑面板 */
+    if (isReadonly) {
+      document.getElementById('editor').innerHTML = '';
+      return;
+    }
+
     var ed = document.getElementById('editor');
     var html = '';
 
@@ -1698,7 +2703,7 @@
 
     var total = state.tasks.length;
     html += '<div class="ed-block">';
-    html += '<h3>工作事项<span class="ed-tip">（共 ' + total + ' 项，按开始日期自动升序排列，可修改内容、删除、插入链接）</span></h3>';
+    html += '<h3>工作事项<span class="ed-tip">（共 ' + total + ' 项，按开始日期自动升序排列）</span></h3>';
     html += '<div class="ed-grid">';
 
     if (total === 0) {
@@ -1716,7 +2721,16 @@
         else { stateCls = 'warn'; stateText = '! 无效链接'; }
       }
 
-      html += '<div class="ed-task" data-card-id="' + esc(t.id) + '">';
+      var riskLevel = t.riskLevel || 'none';
+      var riskNote = t.riskNote || '';
+      var progress = (t.progress === null || t.progress === undefined) ? '' : t.progress;
+
+      var cardClass = 'ed-task';
+      if (riskLevel === 'high') cardClass += ' has-risk-high';
+      else if (riskLevel === 'medium') cardClass += ' has-risk-medium';
+
+      html += '<div class="' + cardClass + '" data-card-id="' + esc(t.id) + '">';
+
       html += '<div class="ed-task-head">';
       html += '<span class="ed-task-idx">' + (i + 1) + '</span>';
       html += '<input class="ed-inp name" type="text" data-tid="' + esc(t.id) + '" data-k="name" ' +
@@ -1740,6 +2754,37 @@
       html += '<label>交付物</label>';
       html += '<input class="ed-inp" type="text" data-tid="' + esc(t.id) + '" data-k="deliverable" ' +
               'value="' + esc(t.deliverable) + '" placeholder="该事项的交付物 / 验收标准" maxlength="120">';
+      html += '</div>';
+
+      html += '<div class="ed-progress-row">';
+      html += '<label>📊 实际进展</label>';
+      html += '<div class="progress-control">';
+      html += '<input type="range" min="0" max="100" step="5" ' +
+              'data-tid="' + esc(t.id) + '" data-k="progress" ' +
+              'value="' + (progress === '' ? 0 : progress) + '" ' +
+              'style="--p:' + (progress === '' ? 0 : progress) + '%">';
+      html += '<input type="number" min="0" max="100" step="5" ' +
+              'data-tid="' + esc(t.id) + '" data-k="progress" ' +
+              'value="' + progress + '" placeholder="—">';
+      html += '<span class="pc-unit">%</span>';
+      html += '</div></div>';
+
+      html += '<div class="ed-risk-row">';
+      html += '<label>⚠ 风险等级</label>';
+      html += '<div class="risk-btns" data-tid="' + esc(t.id) + '">';
+      ['none', 'low', 'medium', 'high'].forEach(function (lv) {
+        var active = (riskLevel === lv) ? ' active' : '';
+        html += '<button type="button" class="risk-btn ' + lv + active + '" ' +
+                'data-risk="' + lv + '" data-tid="' + esc(t.id) + '" ' +
+                'title="' + RISK_META[lv].label + '">' + RISK_META[lv].label + '</button>';
+      });
+      html += '</div></div>';
+
+      html += '<div class="ed-risk-note-row">';
+      html += '<label>风险说明</label>';
+      html += '<input type="text" data-tid="' + esc(t.id) + '" data-k="riskNote" ' +
+              'value="' + esc(riskNote) + '" ' +
+              'placeholder="简要描述风险点与应对措施（可选）" maxlength="200">';
       html += '</div>';
 
       html += '<div class="ed-link-row">';
@@ -1776,6 +2821,54 @@
     html += '</div></div>';
 
     ed.innerHTML = html;
+  }
+
+  /* ============================================================
+     只读模式 UI 管理
+  ============================================================ */
+  function updateReadonlyUI() {
+    var editBtn = document.getElementById('editBtn');
+    var copyBtn = document.getElementById('copyBtn');
+    var banner = document.getElementById('readonlyBanner');
+    var saveHint = document.getElementById('saveHint');
+    var editorEl = document.getElementById('editor');
+
+    if (isReadonly) {
+      if (editBtn) editBtn.style.display = 'none';
+      if (copyBtn) copyBtn.style.display = 'inline-flex';
+      if (banner) banner.classList.add('show');
+      if (saveHint) saveHint.textContent = '只读模式：内容不会被修改';
+      if (editorEl) editorEl.classList.remove('open');
+    } else {
+      if (editBtn) editBtn.style.display = '';
+      if (copyBtn) copyBtn.style.display = 'none';
+      if (banner) banner.classList.remove('show');
+      if (saveHint) saveHint.textContent = '修改会自动保存在本机浏览器中';
+    }
+  }
+
+  /* 复制为我的计划：退出只读，保存到本地，允许编辑 */
+  function copyAsMine() {
+    if (!isReadonly) return;
+    if (!window.confirm('将这份计划复制为你自己的版本？复制后你可以自由编辑，原分享版本不受影响。')) return;
+
+    isReadonly = false;
+
+    /* 清理 URL 参数 */
+    try {
+      var clean = window.location.href.split('#')[0].split('?')[0];
+      window.history.replaceState(null, '', clean);
+    } catch (e) {}
+
+    /* 保存到本地 */
+    saveState();
+
+    /* 更新 UI */
+    updateReadonlyUI();
+    renderEditor();
+    renderGantt();
+    renderTitle();
+    flashSaved('✓ 已复制为你的计划，现在可以编辑了');
   }
 
   /* ============================================================
@@ -1817,7 +2910,21 @@
     }
   }
 
+  function syncProgressUI(tid) {
+    var t = findTask(tid);
+    if (!t) return;
+    var val = (t.progress === null || t.progress === undefined) ? '' : t.progress;
+    var rangeEl = document.querySelector('input[type=range][data-k="progress"][data-tid="' + tid + '"]');
+    var numEl = document.querySelector('input[type=number][data-k="progress"][data-tid="' + tid + '"]');
+    if (rangeEl) {
+      rangeEl.value = (val === '') ? 0 : val;
+      rangeEl.style.setProperty('--p', (val === '' ? 0 : val) + '%');
+    }
+    if (numEl) numEl.value = val;
+  }
+
   function onEditorInput(ev) {
+    if (isReadonly) return;   // 只读模式：拦截所有输入
     var el = ev.target;
     if (!el || !el.dataset) return;
     var k = el.dataset.k;
@@ -1837,23 +2944,87 @@
       flashSaved();
       return;
     }
-    if (k !== 'name' && k !== 'desc' && k !== 'deliverable' && k !== 'link') return;
 
-    var t = findTask(el.dataset.tid);
+    var tid = el.dataset.tid;
+    if (!tid) return;
+    var t = findTask(tid);
     if (!t) return;
+
+    if (k === 'progress' && el.type === 'range') {
+      var v = clamp(parseInt(el.value, 10) || 0, 0, 100);
+      t.progress = v;
+      el.style.setProperty('--p', v + '%');
+      var numEl = document.querySelector('input[type=number][data-k="progress"][data-tid="' + tid + '"]');
+      if (numEl) numEl.value = v;
+      saveState();
+      renderGantt();
+      flashSaved();
+      return;
+    }
+
+    if (k === 'progress' && el.type === 'number') {
+      var raw = el.value.trim();
+      if (raw === '') {
+        t.progress = null;
+      } else {
+        var n = parseInt(raw, 10);
+        if (isNaN(n)) return;
+        n = clamp(n, 0, 100);
+        t.progress = n;
+        el.value = n;
+      }
+      var rangeEl = document.querySelector('input[type=range][data-k="progress"][data-tid="' + tid + '"]');
+      if (rangeEl) {
+        rangeEl.value = (t.progress === null) ? 0 : t.progress;
+        rangeEl.style.setProperty('--p', (t.progress === null ? 0 : t.progress) + '%');
+      }
+      saveState();
+      renderGantt();
+      flashSaved();
+      return;
+    }
+
+    if (k !== 'name' && k !== 'desc' && k !== 'deliverable' &&
+        k !== 'link' && k !== 'riskNote') return;
+
     t[k] = el.value;
-    if (k === 'link') updateLinkUI(t.id);
+    if (k === 'link') updateLinkUI(tid);
     saveState();
     renderGantt();
     flashSaved();
   }
 
   function onEditorChange(ev) {
+    if (isReadonly) return;
     var el = ev.target;
     if (!el || !el.dataset || !el.dataset.k) return;
     var key = el.dataset.k;
+
     if (key === 'title' || key === 'goal' || key === 'name' ||
-        key === 'desc' || key === 'deliverable' || key === 'link') return;
+        key === 'desc' || key === 'deliverable' || key === 'link' ||
+        key === 'riskNote') return;
+
+    if (key === 'progress') {
+      var tid2 = el.dataset.tid;
+      if (!tid2) return;
+      var t2 = findTask(tid2);
+      if (!t2) return;
+      var raw2 = el.value.trim();
+      if (raw2 === '') {
+        t2.progress = null;
+      } else {
+        var n2 = parseInt(raw2, 10);
+        if (isNaN(n2)) return;
+        n2 = clamp(n2, 0, 100);
+        t2.progress = n2;
+        el.value = n2;
+      }
+      syncProgressUI(tid2);
+      saveState();
+      renderGantt();
+      flashSaved();
+      return;
+    }
 
     if (el.dataset.tid) {
       var target = findTask(el.dataset.tid);
@@ -1885,7 +3056,6 @@
       }
     }
 
-    /* 日期变更后需要重新排序，因此重建编辑面板以反映新顺序 */
     normalize();
     saveState();
     renderGantt();
@@ -1894,20 +3064,48 @@
   }
 
   function onEditorClick(ev) {
+    if (isReadonly) return;
     var el = ev.target;
     if (!el || !el.dataset) return;
+
     if (el.id === 'shiftApply') { applyShift(); return; }
     if (el.id === 'addTask') { addTask(); return; }
+
+    if (el.classList && el.classList.contains('risk-btn')) {
+      var tid = el.dataset.tid || (el.parentElement && el.parentElement.dataset.tid);
+      var lv = el.dataset.risk;
+      if (!tid || !lv) return;
+      var t = findTask(tid);
+      if (!t) return;
+      t.riskLevel = normalizeRiskLevel(lv);
+      var btns = el.parentElement.querySelectorAll('.risk-btn');
+      Array.prototype.forEach.call(btns, function (b) {
+        b.classList.toggle('active', b.dataset.risk === t.riskLevel);
+      });
+      var card = document.querySelector('.ed-task[data-card-id="' + tid + '"]');
+      if (card) {
+        card.classList.remove('has-risk-high', 'has-risk-medium');
+        if (t.riskLevel === 'high') card.classList.add('has-risk-high');
+        else if (t.riskLevel === 'medium') card.classList.add('has-risk-medium');
+      }
+      saveState();
+      renderGantt();
+      flashSaved('风险等级：' + RISK_META[t.riskLevel].label);
+      return;
+    }
+
     if (el.classList && el.classList.contains('ed-link-open')) {
       if (el.classList.contains('disabled')) ev.preventDefault();
       return;
     }
+
     var act = el.dataset.act;
-    var tid = el.dataset.tid;
-    if (act && tid) handleTaskAction(act, tid);
+    var taskId = el.dataset.tid;
+    if (act && taskId) handleTaskAction(act, taskId);
   }
 
   function handleTaskAction(act, id) {
+    if (isReadonly) return;
     var idx = -1;
     state.tasks.forEach(function (x, i) { if (x.id === id) idx = i; });
     if (idx < 0) return;
@@ -1928,6 +3126,7 @@
   }
 
   function addTask() {
+    if (isReadonly) return;
     var today = toDay(new Date());
     var s, e;
     if (state.tasks.length > 0) {
@@ -1939,7 +3138,9 @@
     e = addDays(s, 6);
     var newTask = {
       id: newId(), name: '新工作事项', desc: '',
-      deliverable: '', link: '', start: s, end: e
+      deliverable: '', link: '',
+      progress: null, riskLevel: 'none', riskNote: '',
+      start: s, end: e
     };
     state.tasks.push(newTask);
     normalize();
@@ -1961,6 +3162,7 @@
   }
 
   function applyShift() {
+    if (isReadonly) return;
     var el = document.getElementById('shiftDays');
     if (!el) return;
     var n = parseInt(el.value, 10);
@@ -1991,7 +3193,7 @@
     el.style.color = '#10b981';
     if (hintTimer) clearTimeout(hintTimer);
     hintTimer = setTimeout(function () {
-      el.textContent = '修改会自动保存在本机浏览器中';
+      el.textContent = isReadonly ? '只读模式：内容不会被修改' : '修改会自动保存在本机浏览器中';
       el.style.color = '#94a3b8';
     }, 2200);
   }
@@ -2003,38 +3205,18 @@
   var shareUrlEl = document.getElementById('shareUrl');
   var shareLenEl = document.getElementById('shareLen');
   var shareCopyHint = document.getElementById('shareCopyHint');
-
-  function estimateOldLength() {
-    try {
-      var json = packState();
-      var bytes = new TextEncoder().encode(json);
-      var base = window.location.href.split('#')[0].split('?')[0];
-      return base.length + 3 + bytesToBase64Url(bytes).length;
-    } catch (e) {
-      return 0;
-    }
-  }
+  var shareTip = document.getElementById('shareTip');
+  var shareDesc = document.getElementById('shareDesc');
 
   function openShareModal() {
     var url = generateShareUrl();
     shareUrlEl.value = url;
-
     var len = url.length;
-    var oldLen = estimateOldLength();
-
     shareLenEl.className = 'saved';
     shareLenEl.textContent = '已压缩：' + len + ' 字符';
-
-    if (oldLen && oldLen > len) {
-      var saved = oldLen - len;
-      var pct = Math.round(saved / oldLen * 100);
-      shareLenEl.textContent += '（旧格式约 ' + oldLen + ' 字符，缩短约 ' + pct + '%）';
-    }
-
     shareCopyHint.textContent = '';
     shareCopyHint.className = '';
     shareModal.classList.add('open');
-
     setTimeout(function () {
       try { shareUrlEl.focus(); shareUrlEl.select(); } catch (e) {}
     }, 80);
@@ -2081,20 +3263,55 @@
     if (ev.key === 'Escape' && shareModal.classList.contains('open')) closeShareModal();
   });
   document.getElementById('sharedBannerClose').addEventListener('click', function () {
-    document.getElementById('sharedBanner').style.display = 'none';
+    document.getElementById('sharedBanner').classList.remove('show');
+  });
+
+  /* 筛选 */
+  var filterEl = document.getElementById('riskFilter');
+  filterEl.addEventListener('change', function () {
+    riskFilter = filterEl.value;
+    filterEl.classList.toggle('has-filter', riskFilter !== 'all');
+    renderGantt();
+  });
+
+  /* 明细面板折叠 */
+  document.getElementById('dpHead').addEventListener('click', function (ev) {
+    if (ev.target && ev.target.classList && ev.target.classList.contains('dp-toggle')) return;
+    setCollapsed(!collapsed);
+  });
+  document.getElementById('dpToggle').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    setCollapsed(!collapsed);
+  });
+
+  /* 明细面板点击跳转 */
+  document.getElementById('detailPanel').addEventListener('click', function (ev) {
+    var pItem = findParentByClass(ev.target, 'dp-prog-item');
+    if (pItem && pItem.dataset.target) { scrollToTask(pItem.dataset.target); return; }
+    var rItem = findParentByClass(ev.target, 'dp-risk-item');
+    if (rItem && rItem.dataset.target) { scrollToTask(rItem.dataset.target); return; }
   });
 
   /* ============================================================
      初始化
   ============================================================ */
   var editBtn = document.getElementById('editBtn');
+  var copyBtn = document.getElementById('copyBtn');
+  var copyBtn2 = document.getElementById('copyBtn2');
   var editorEl = document.getElementById('editor');
 
   editBtn.addEventListener('click', function () {
+    if (isReadonly) {
+      flashSaved('只读模式，请先点击「复制为我的计划」');
+      return;
+    }
     var open = editorEl.classList.toggle('open');
     editBtn.classList.toggle('on', open);
     editBtn.textContent = open ? '✓ 收起编辑面板' : '✏️ 编辑计划';
   });
+
+  copyBtn.addEventListener('click', copyAsMine);
+  copyBtn2.addEventListener('click', copyAsMine);
 
   editorEl.addEventListener('input', onEditorInput);
   editorEl.addEventListener('change', onEditorChange);
@@ -2113,38 +3330,58 @@
     if (sig !== lastSig) { lastSig = sig; renderGantt(); }
   }
 
-  /* 先尝试加载分享链接 */
+  /* 读取分享链接 */
   var hadShare = false;
   var hadShareError = false;
+  var wasReadonlyShare = false;
+
   try {
     var shareFound = extractShareParam();
     if (shareFound) {
-      hadShare = tryLoadShared();
-      if (!hadShare) hadShareError = true;
+      if (shareFound.readonly) wasReadonlyShare = true;
+      hadShare = tryLoadShared(shareFound);
+      if (!hadShare) {
+        wasReadonlyShare = false;
+        hadShareError = true;
+      } else if (wasReadonlyShare) {
+        isReadonly = true;
+      }
     }
   } catch (e) {
     console.warn('[分享] 加载失败：', e);
+    wasReadonlyShare = false;
     hadShareError = true;
   }
 
-  /* 初始化时先按时间排序一次，保证展示顺序正确 */
-  normalize();
+  /* 只读模式下不保存到本地 */
+  if (hadShare && !isReadonly) {
+    saveState();
+  }
 
+  normalize();
   renderEditor();
   renderGantt();
+  setCollapsed(collapsed);
+  updateReadonlyUI();
 
-  if (hadShare) {
-    saveState();
+  /* 提示横幅 */
+  if (hadShare && isReadonly) {
     var banner = document.getElementById('sharedBanner');
-    banner.style.display = 'flex';
+    banner.classList.add('show');
+    document.getElementById('sharedBannerText').innerHTML =
+      '🔒 <b>已加载只读分享的甘特图</b>。这是发布者的最新版本，你可以查看，但无法修改。' +
+      '如需编辑，请点击上方的「复制为我的计划」。';
+  } else if (hadShare) {
+    var banner2 = document.getElementById('sharedBanner');
+    banner2.classList.add('show');
     document.getElementById('sharedBannerText').innerHTML =
       '🔗 <b>已加载分享的甘特图</b>，内容已保存到你的浏览器。你可以继续编辑，或点击「生成分享链接」再次分享给别人。';
   } else if (hadShareError) {
-    var banner2 = document.getElementById('sharedBanner');
-    banner2.style.display = 'flex';
-    banner2.classList.add('error');
+    var banner3 = document.getElementById('sharedBanner');
+    banner3.classList.add('show');
+    banner3.classList.add('error');
     document.getElementById('sharedBannerText').innerHTML =
-      '⚠️ <b>分享链接解析失败</b>，可能链接被截断或修改了。当前显示的是默认内容，你可以手动重新编辑。';
+      '⚠️ <b>分享链接解析失败</b>，可能链接被截断或修改了。当前显示的是默认内容。';
   }
 
   lastSig = signature();
